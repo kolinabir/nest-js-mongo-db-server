@@ -1,20 +1,34 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, set } from 'mongoose';
 import { User } from 'src/schemas/User.schema';
 import { CreateUserDto } from './dto/CreateUser.dto';
 import { UpdateUserDto } from './dto/UpdateUser.dto';
+import { UserSettings } from 'src/schemas/UserSettings.schema';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<User>) {}
-  createUser(createUserDto: CreateUserDto) {
+  constructor(
+    @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(UserSettings.name)
+    private userSettingsModel: Model<UserSettings>,
+  ) {}
+  async createUser({ settings, ...createUserDto }: CreateUserDto) {
+    if (settings) {
+      const newSettings = new this.userSettingsModel(settings);
+      const saveNewSettings = await newSettings.save();
+      const newUser = new this.userModel({
+        ...createUserDto,
+        settings: saveNewSettings._id,
+      });
+      return await newUser.save();
+    }
     const newUser = new this.userModel(createUserDto);
     return newUser.save();
   }
 
   getAllUser() {
-    const allUser = this.userModel.find();
+    const allUser = this.userModel.find().populate('settings');
     return allUser;
   }
 
